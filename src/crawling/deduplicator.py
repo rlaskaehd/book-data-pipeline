@@ -27,18 +27,22 @@ def load_seen_keys(file_path):
 
 def check_book_keys(books, seen_keys):
     unique_books = []
+    current_keys = set()
 
     for book in books:
         key = make_book_key(book)
 
-        if key in seen_keys:
+        if key in seen_keys or key in current_keys:
             continue
-    
-        seen_keys.add(key)
+
+        current_keys.add(key)
         unique_books.append(book)
-    
+
     return unique_books
 
+def update_seen_keys(books, seen_keys):
+    for book in books:
+        seen_keys.add(make_book_key(book))
 
 if __name__ == '__main__':
     print('[INFO] 잘못된 접근방식 입니다.')
