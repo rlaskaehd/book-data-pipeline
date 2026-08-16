@@ -1,7 +1,9 @@
 # main.py
 import os
+import sys
 import time
 import random
+from pathlib import Path
 from dotenv import load_dotenv
 
 from crawling.collector import check_current_url, get_response, TooManyRequestsError
@@ -9,12 +11,15 @@ from crawling.parser import parse_html, parse_books
 from crawling.deduplicator import load_seen_keys, check_book_keys, update_seen_keys
 from crawling.writer import save_csv
 from crawling.checkpoint import load_checkpoint, update_checkpoint
+from common import log_error, log_info, log_warning
 
 
 load_dotenv()
 
 
 def main():
+
+    log_info("프로그램 시작")
 
     # 타겟 카테고리 [컴퓨터/모바일, 과학, 경제경영, 인문학, 역사, 요리/살림]
     target_category_ids = [int(cid.strip()) for cid in os.getenv("TARGET_CATEGORY_IDS").split(",")]
@@ -36,14 +41,26 @@ def main():
     target_pages = (target_category_rows + view_rows_count - 1) // view_rows_count
 
     # 데이터 및 체크포인트 경로
-    loading_path = os.getenv("LOADING_PATH")
-    checkpoint_path = os.getenv("CHECKPOINT_PATH")
+    # 발생 이슈1: 부모 디렉터리가 없을 때 생성 로직 누락으로 에러 발생 -> main.py의 경로 초기화 구간에 경로 확장과 부모 디렉터리 생성 로직 추가
+    loading_path = Path(os.getenv("LOADING_PATH")).expanduser()
+    checkpoint_path = Path(os.getenv("CHECKPOINT_PATH")).expanduser()
+    loading_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
     # URL 유효성 검증 -> 실패 시 raise
     url = check_current_url(os.getenv("TARGET_URL"), os.getenv("TARGET_PATH"),)
 
     # 이전 작업의 체크포인트를 불러옵니다.
     checkpoint = load_checkpoint(checkpoint_path)
+
+    if checkpoint:
+        log_info(
+            f"checkpoint 복원 성공 - "
+            f"category_id={checkpoint['category_id']}, "
+            f"page={checkpoint['page']}"
+        )
+    else:
+        log_info("checkpoint 없음")
 
     # 체크포인트가 없는 경우 처음부터 시작
     start_index = 0
@@ -76,7 +93,7 @@ def main():
 
     # 이미 목표 row 수를 만족한 경우 작업하지 않고 종료
     if row_count >= target_rows:
-        print(f"[INFO] 이미 작업이 완료되었습니다. rows: {row_count}")
+        log_info(f"이미 작업이 완료되었습니다. rows: {row_count}")
         return
 
     # 루프 시작(카테고리 선택)
@@ -89,12 +106,11 @@ def main():
         # 루프 시작(페이지 선택)
         for page in range(page_start, target_pages + 1):
 
-            print(f"""\
-[INFO]
- 카테고리 ID: {category_id}
- 페이지: {page}
- 크롤링을 시작합니다
-""")
+            log_info(
+                f"크롤링 시작 - "
+                f"category_id={category_id}, "
+                f"page={page}"
+            )
 
             # 429 응답 발생 시 다음 페이지로 넘어가지 않고
             # 현재 페이지에서 정상 응답을 받을 때까지 재시도합니다.
@@ -116,24 +132,21 @@ def main():
                     # 429 응답이 발생한 경우 연속 발생 횟수를 증가시킵니다.
                     consecutive_429 += 1
 
-                    print(
-                        f"[WARNING] 429 응답이 발생했습니다. "
-                        f"연속 발생 횟수: {consecutive_429}/3"
+                    log_warning(
+                        f"429 응답이 발생했습니다. "
+                        f"retry={consecutive_429}/3"
                     )
 
                     # 429 응답이 연속 3회 발생한 경우 서버에 추가 요청을 보내지 않고
                     # 현재 작업을 즉시 종료합니다.
                     if consecutive_429 >= 3:
-                        print(
-                            "[ERROR] 429 응답이 연속 3회 발생하여 "
-                            "작업을 종료합니다."
-                        )
-                        return
+                        log_error("429 응답이 연속 3회 발생하여 작업을 종료합니다.")
+                        sys.exit(1)
 
                     # 429 응답 발생 시 60초 동안 대기한 후
                     # 동일한 카테고리와 페이지를 다시 요청합니다.
-                    print(
-                        "[INFO] 요청 제한으로 인해 60초 대기 후 "
+                    log_info(
+                        "요청 제한으로 인해 60초 대기 후 "
                         "동일 페이지를 다시 요청합니다."
                     )
                     time.sleep(60)
@@ -149,6 +162,7 @@ def main():
                 book_list,
                 seen_keys,
             )
+            duplicate_count = len(book_list) - len(unique_book_list)
 
             # 목표 row 수를 초과하지 않도록 현재 남은 적재 가능 행 수만큼 잘라냅니다.
             remaining_rows = target_rows - row_count
@@ -176,10 +190,20 @@ def main():
             # 실제 새롭게 적재된 데이터 수만큼 카운트 증가
             row_count += len(unique_book_list)
 
+            log_info(
+                f"페이지 처리 완료 - "
+                f"category_id={category_id}, "
+                f"page={page}, "
+                f"parsed={len(book_list)}, "
+                f"duplicated={duplicate_count}, "
+                f"saved={len(unique_book_list)}, "
+                f"total={row_count}"
+            )
+
             # 목표 row 수에 도달하면 전체 작업 즉시 종료
             if row_count >= target_rows:
-                print(
-                    f"[INFO] 작업이 완료되었습니다. "
+                log_info(
+                    f"TARGET_ROWS 도달 및 정상 완료 - "
                     f"rows: {row_count}"
                 )
                 return
@@ -198,4 +222,5 @@ if __name__ == "__main__":
     try:
         main()
     except RuntimeError as e:
-        print(f"[ERROR] {e}")
+        log_error(f"{e}")
+        sys.exit(1)

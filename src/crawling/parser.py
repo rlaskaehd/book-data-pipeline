@@ -1,3 +1,5 @@
+import re
+
 from bs4 import BeautifulSoup
 
 
@@ -18,27 +20,92 @@ def parse_books(soup):
         book_list = book_list.select_one('.ss_book_list')
         il = book_list.select('li')
 
-        def il_rule(i):
-            return il[i] if len(il) > 4 else il[i-1]
-
         # 책 제목하고 URL 발라내기
         title = book_list.select_one('a.bo3').get_text(strip=True).split('(')[0]
         detail_url = book_list.select_one('a.bo3').get('href')
-        
+
+        # 발생 이슈2: 추가 li 때문에 위치 기반 메타데이터 선택 실패
+        # -> 구분자 기준으로 메타데이터 행 선택 로직 추가
+        metadata_text = next(
+            (
+                item.get_text('', strip=True)
+                for item in il
+                if item.get_text('', strip=True).count('|') >= 2
+            ),
+            None,
+        )
+
+        # 발생 이슈4: 일부 상품은 저자 정보가 생략되어
+        # '출판사 | 출판일' 형태로 반환됨
+        # -> 기존 형식을 우선 탐색하고, 없을 때 출판일 패턴으로 보완 형식 검색
+        if metadata_text is None:
+            metadata_text = next(
+                (
+                    item.get_text('', strip=True)
+                    for item in il
+                    if (
+                        item.get_text('', strip=True).count('|') == 1
+                        and re.search(
+                            r'\d{4}년\s*\d{1,2}월',
+                            item.get_text('', strip=True),
+                        )
+                    )
+                ),
+                None,
+            )
+
+        # 메타데이터 구조를 확인할 수 없는 상품은 건너뜁니다.
+        if metadata_text is None:
+            continue
+
+        metadata = [
+            value.strip()
+            for value in metadata_text.split('|', 2)
+        ]
+
+        if len(metadata) == 3:
+            author_text, publisher, published_date = metadata
+
+            authors = [
+                author.strip()
+                for author in author_text.split('(')[0].split(',')
+                if author.strip()
+            ]
+
+        elif len(metadata) == 2:
+            publisher, published_date = metadata
+            authors = []
+
+        else:
+            continue
+
         # 지은이(복수 list), 대표 지은이, 지은이 수, 출판사, 출판일
         # 추가정보
         # .get_text('', strip=True) 부분을 많은 사람들이 뭐하는건지 모르는데(본인 포함) 이거 태그 안의 모든 텍스트 조각을 가져와서
         # 각 조각들의 (strip=True) 공백을 제거한 후에 ('') 조각들 사이에 아무것도 넣지말고 하나로 합쳐라.
-        authors = il_rule(2).get_text('', strip=True).split('|')[0].split('(')[0].split(',')
-        authors = [author.strip() for author in authors]    # 각 저자 사이의 공백 제거
-        publisher = il_rule(2).get_text('', strip=True).split('|')[1]
-        published_date = il_rule(2).get_text('', strip=True).split('|')[-1]
+
+        # 발생 이슈3: 정가 필드 누락
+        # -> 가격 행의 첫 번째 가격을 정가로 수집
+        price_row = next(
+            item
+            for item in il
+            if item.select_one('.ss_p2')
+        )
+
+        price_element = price_row.select_one(
+            'span:not(.ss_p2):not(.ss_p)'
+        )
+
+        list_price = int(
+            price_element.get_text(strip=True).replace(',', '')
+        )
 
         books.append({
             'title': title,
-            'primary_author': authors[0],
+            'primary_author': authors[0] if authors else '',
             'publisher': publisher,
             'published_date': published_date,
+            'list_price': list_price,
             'detail_url': detail_url,
             'author_count': len(authors),
             'authors': '|'.join(authors),

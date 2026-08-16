@@ -26,7 +26,9 @@ def get_response(url, page, cid, view_rows_count=50):
     }
 
     try:
-        response = requests.get(url, params=params, timeout=5)
+        # 발생 이슈 3: 페이지 응답 지연 시 기존 timeout=5초에서 에러 발생
+        # -> get_response의 timeout을 보수적 수치인 20초로 변경
+        response = requests.get(url, params=params, timeout=20)
         
         if response.status_code == 429:
             raise TooManyRequestsError('요청 제한이 반환되었습니다.')
