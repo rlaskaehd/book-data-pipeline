@@ -77,7 +77,6 @@ flowchart TD
 ### 1. 의존성 설치
 
 ```bash
-conda activate sandbox
 python -m pip install -r requirements.txt
 ```
 
