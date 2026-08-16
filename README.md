@@ -66,6 +66,7 @@ flowchart TD
 │   ├── crawling-policy.md         # 크롤링 정책 및 운영 원칙
 │   └── idempotency.md             # 재실행·체크포인트 정책 요약
 ├── .env.example                   # 실행 설정 예시
+├── LICENSE                        # MIT 라이선스
 └── README.md
 ```
 
@@ -77,3 +78,25 @@ flowchart TD
 conda activate sandbox
 PYTHONPATH=src python src/main.py
 ```
+
+## 실행 결과
+
+다음은 2026-08-17 실행에서 확인한 결과입니다. 대상 사이트와 환경별 식별 정보는 공개하지 않습니다.
+
+- 목표 행 수: `100,000`
+- 최종 저장 행 수: `100,000`
+- 종료 상태: `TARGET_ROWS 도달 및 정상 완료`
+- 마지막 페이지 처리: 50건 파싱, 중복 2건, 목표 잔여량에 따라 40건 저장
+
+```text
+[INFO] 페이지 처리 완료 - parsed=50, duplicated=2, saved=40, total=100000
+[INFO] TARGET_ROWS 도달 및 정상 완료 - rows: 100000
+```
+
+> 이 기록은 2026-08-16 ~ 2026-08-17 당시의 단일 실행 결과입니다. 대상 데이터와 실행 환경에 따라 재실행 결과는 달라질 수 있습니다.
+
+## License
+
+이 프로젝트의 직접 작성한 소스 코드와 프로젝트 문서는 MIT License로 배포합니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참고하세요.
+
+실제 수집 데이터, 외부 웹사이트의 콘텐츠, 상표 및 제3자 자료는 이 라이선스의 적용 대상이 아니며 각각의 권리와 이용 조건을 따릅니다.
