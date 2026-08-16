@@ -41,8 +41,16 @@ dist/
 
 # 로그
 *.log
+logs/
+
+# 로컬 크롤링 결과와 실행 상태
+data/*.csv
+state/*.json
 
 # 통계 수집 실행 결과
 outputs/
 output/
 api_test/
+
+# 사이트 robots.txt
+robots.txt
