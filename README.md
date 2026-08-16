@@ -63,10 +63,10 @@ flowchart TD
 ├── config/
 │   └── logrotate.conf             # 로그 보관 설정 예시
 ├── docs/
-│   ├── crawling-policy.md         # 크롤링 정책 및 운영 원칙
-│   └── idempotency.md             # 재실행·체크포인트 정책 요약
+│   └── crawling-policy.md         # 크롤링 정책 및 운영 원칙
 ├── .env.example                   # 실행 설정 예시
 ├── LICENSE                        # MIT 라이선스
+├── requirements.txt               # Python 의존성 목록
 └── README.md
 ```
 
@@ -74,8 +74,24 @@ flowchart TD
 
 ## 실행
 
+### 1. 의존성 설치
+
 ```bash
 conda activate sandbox
+python -m pip install -r requirements.txt
+```
+
+### 2. 환경 설정 작성
+
+`.env.example`을 복사한 뒤 실제 실행 환경에 맞는 URL, 경로, 카테고리 ID와 저장 경로를 `.env`에 작성합니다. 실제 `.env` 파일은 커밋하지 않습니다.
+
+```bash
+cp .env.example .env
+```
+
+### 3. 파이프라인 실행
+
+```bash
 PYTHONPATH=src python src/main.py
 ```
 
