@@ -1,5 +1,7 @@
 import requests
 
+class TooManyRequestsError(Exception):
+    pass
 
 # 참고: [requests 튜토리얼](https://blog.choonzang.com/it/python/2606/)
 def check_current_url(base_url, path):
@@ -25,6 +27,10 @@ def get_response(url, page, cid, view_rows_count=50):
 
     try:
         response = requests.get(url, params=params, timeout=5)
+        
+        if response.status_code == 429:
+            raise TooManyRequestsError('요청 제한이 반환되었습니다.')
+        
         response.raise_for_status()
 
         return response.text
