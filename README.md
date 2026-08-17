@@ -106,6 +106,7 @@ PYTHONPATH=src python src/main.py
 ```text
 [INFO] 페이지 처리 완료 - parsed=50, duplicated=2, saved=40, total=100000
 [INFO] TARGET_ROWS 도달 및 정상 완료 - rows: 100000
+(bootcamp) book-data-pipeline
 ```
 
 > 이 기록은 2026-08-16 ~ 2026-08-17 당시의 단일 실행 결과입니다. 대상 데이터와 실행 환경에 따라 재실행 결과는 달라질 수 있습니다.
